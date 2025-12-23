@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: proveniq-anchors-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: proveniq_anchors
+    ports:
+      - "5434:5432"
+    volumes:
+      - anchors_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    container_name: proveniq-anchors-api
+    ports:
+      - "8005:8005"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/proveniq_anchors
+      - LEDGER_API_URL=http://host.docker.internal:8006/api/v1
+      - HOST=0.0.0.0
+      - PORT=8005
+      - DEBUG=true
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8005 --reload
+
+volumes:
+  anchors_postgres_data:
